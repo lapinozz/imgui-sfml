@@ -8,6 +8,8 @@
 #else
 #define IMGUI_SFML_API __declspec(dllimport)
 #endif
+#elif __GNUC__
+#define IMGUI_SFML_API __attribute__((visibility("default")))
 #else
 #define IMGUI_SFML_API
 #endif
