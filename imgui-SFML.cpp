@@ -996,7 +996,9 @@ void SetupRenderState(ImDrawData* draw_data, int fb_width, int fb_height)
     glEnableClientState(GL_COLOR_ARRAY);
     glDisableClientState(GL_NORMAL_ARRAY);
     glEnable(GL_TEXTURE_2D);
+#ifndef GL_VERSION_ES_CL_1_1
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+#endif
     glShadeModel(GL_SMOOTH);
     glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
@@ -1063,8 +1065,12 @@ void RenderDrawLists(ImDrawData* draw_data)
     // Backup GL state
     GLint last_texture = 0;
     glGetIntegerv(GL_TEXTURE_BINDING_2D, &last_texture);
+
+#ifndef GL_VERSION_ES_CL_1_1
     GLint last_polygon_mode[2];
     glGetIntegerv(GL_POLYGON_MODE, last_polygon_mode);
+#endif
+
     GLint last_viewport[4];
     glGetIntegerv(GL_VIEWPORT, last_viewport);
     GLint last_scissor_box[4];
@@ -1127,7 +1133,7 @@ void RenderDrawLists(ImDrawData* draw_data)
                 clip_rect.w = (pcmd->ClipRect.w - clip_off.y) * clip_scale.y;
 
                 if (clip_rect.x < static_cast<float>(fb_width) && clip_rect.y < static_cast<float>(fb_height) &&
-                    clip_rect.z >= 0.0f && clip_rect.w >= 0.0f)
+                    clip_rect.z - clip_rect.x >= 0.0f && clip_rect.w - clip_rect.y >= 0.0f)
                 {
                     // Apply scissor/clipping rectangle
                     glScissor((int)clip_rect.x,
@@ -1156,9 +1162,13 @@ void RenderDrawLists(ImDrawData* draw_data)
     glPopMatrix();
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
+
+#ifndef GL_VERSION_ES_CL_1_1
     glPopAttrib();
     glPolygonMode(GL_FRONT, (GLenum)last_polygon_mode[0]);
     glPolygonMode(GL_BACK, (GLenum)last_polygon_mode[1]);
+#endif
+
     glViewport(last_viewport[0], last_viewport[1], (GLsizei)last_viewport[2], (GLsizei)last_viewport[3]);
     glScissor(last_scissor_box[0], last_scissor_box[1], (GLsizei)last_scissor_box[2], (GLsizei)last_scissor_box[3]);
     glShadeModel((GLenum)last_shade_model);

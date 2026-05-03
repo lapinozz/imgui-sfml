@@ -58,8 +58,6 @@ if(NOT OpenGL_GL_PREFERENCE)
   set(OpenGL_GL_PREFERENCE "LEGACY")
 endif()
 
-find_package(OpenGL REQUIRED)
-
 include(GNUInstallDirs)
 
 # Define ImGui-SFML
@@ -72,13 +70,25 @@ target_include_directories(ImGui-SFML PUBLIC
 target_include_directories(ImGui-SFML SYSTEM PUBLIC
   $<BUILD_INTERFACE:${IMGUI_INCLUDE_DIR}>
 )
-target_link_libraries(ImGui-SFML PUBLIC SFML::Graphics OpenGL::GL)
+
+if(IOS)
+    target_link_libraries(ImGui-SFML PRIVATE "-framework OpenGLES")
+elseif(ANDROID)
+    find_package(EGL REQUIRED)
+    find_package(GLES REQUIRED)
+    target_link_libraries(ImGui-SFML PRIVATE EGL::EGL GLES::GLES)
+else()
+    find_package(OpenGL REQUIRED COMPONENTS OpenGL)
+    target_link_libraries(ImGui-SFML PRIVATE OpenGL::GL)
+endif()
+
+target_link_libraries(ImGui-SFML PUBLIC SFML::Graphics)
 if(WIN32 AND MINGW)
   target_link_libraries(ImGui-SFML PUBLIC imm32)
 endif()
 if(BUILD_SHARED_LIBS)
-  target_compile_definitions(ImGui-SFML PRIVATE IMGUI_SFML_SHARED_LIB)
-  set_target_properties(ImGui-SFML PROPERTIES DEFINE_SYMBOL "IMGUI_SFML_EXPORTS")
+  target_compile_definitions(ImGui-SFML PUBLIC IMGUI_SFML_SHARED_LIB
+                                        PRIVATE IMGUI_SFML_EXPORTS)
   set_target_properties(ImGui-SFML PROPERTIES DEBUG_POSTFIX "_d")
 endif()
 if(IMGUI_SFML_DISABLE_OBSOLETE_FUNCTIONS)
