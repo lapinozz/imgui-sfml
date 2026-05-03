@@ -27,15 +27,9 @@ namespace ImGui
 namespace SFML
 {
 
-#if IMGUI_VERSION_NUM >= 19200
 [[nodiscard]] IMGUI_SFML_API bool Init(sf::RenderWindow& window);
 [[nodiscard]] IMGUI_SFML_API bool Init(sf::Window& window, sf::RenderTarget& target);
 [[nodiscard]] IMGUI_SFML_API bool Init(sf::Window& window, const sf::Vector2f& displaySize);
-#else
-[[nodiscard]] IMGUI_SFML_API bool Init(sf::RenderWindow& window, bool loadDefaultFont = true);
-[[nodiscard]] IMGUI_SFML_API bool Init(sf::Window& window, sf::RenderTarget& target, bool loadDefaultFont = true);
-[[nodiscard]] IMGUI_SFML_API bool Init(sf::Window& window, const sf::Vector2f& displaySize, bool loadDefaultFont = true);
-#endif
 
 IMGUI_SFML_API void SetCurrentWindow(const sf::Window& window);
 IMGUI_SFML_API void ProcessEvent(const sf::Window& window, const sf::Event& event);

@@ -249,8 +249,7 @@ struct WindowContext
     const sf::Window* window;
     ImGuiContext*     imContext{ImGui::CreateContext()};
 
-    std::optional<sf::Texture> fontTexture; // internal font atlas which is used if user doesn't set
-                                            // a custom sf::Texture.
+    std::optional<sf::Texture> fontTexture; 
 
     bool             windowHasFocus;
     bool             mouseMoved{false};
@@ -302,7 +301,6 @@ namespace ImGui
 namespace SFML
 {
 
-#if IMGUI_VERSION_NUM >= 19200
 bool Init(sf::RenderWindow& window)
 {
     return Init(window, window);
@@ -312,23 +310,8 @@ bool Init(sf::Window& window, sf::RenderTarget& target)
 {
     return Init(window, sf::Vector2f(target.getSize()));
 }
-#else
-bool Init(sf::RenderWindow& window, bool loadDefaultFont)
-{
-    return Init(window, window, loadDefaultFont);
-}
 
-bool Init(sf::Window& window, sf::RenderTarget& target, bool loadDefaultFont)
-{
-    return Init(window, sf::Vector2f(target.getSize()), loadDefaultFont);
-}
-#endif
-
-#if IMGUI_VERSION_NUM >= 19200
 bool Init(sf::Window& window, const sf::Vector2f& displaySize)
-#else
-bool Init(sf::Window& window, const sf::Vector2f& displaySize, bool loadDefaultFont)
-#endif
 {
     s_currWindowCtx = s_windowContexts.emplace_back(std::make_unique<WindowContext>(&window)).get();
     ImGui::SetCurrentContext(s_currWindowCtx->imContext);
@@ -367,16 +350,6 @@ bool Init(sf::Window& window, const sf::Vector2f& displaySize, bool loadDefaultF
     loadMouseCursor(ImGuiMouseCursor_ResizeNESW, sf::Cursor::Type::SizeBottomLeftTopRight);
     loadMouseCursor(ImGuiMouseCursor_ResizeNWSE, sf::Cursor::Type::SizeTopLeftBottomRight);
     loadMouseCursor(ImGuiMouseCursor_Hand, sf::Cursor::Type::Hand);
-
-#if IMGUI_VERSION_NUM >= 19200
-#else
-    if (loadDefaultFont)
-    {
-        // this will load default font automatically
-        // No need to call AddDefaultFont
-        return UpdateFontTexture();
-    }
-#endif
 
     return true;
 }
@@ -583,10 +556,11 @@ void Update(const sf::Vector2i& mousePos, const sf::Vector2f& displaySize, sf::T
 #endif
 #endif
 
-#if IMGUI_VERSION_NUM >= 19200
-#else
-    assert(io.Fonts->Fonts.Size > 0); // You forgot to create and set up font
-                                      // atlas (see createFontTexture)
+#if IMGUI_VERSION_NUM < 19200
+    if (!io.Fonts->TexReady)
+    {
+        assert(ImGui::SFML::UpdateFontTexture()); // Failed to create font texture
+    }
 #endif
 
     // gamepad navigation
@@ -651,7 +625,10 @@ void Shutdown(const sf::Window& window)
             ImGui::SetCurrentContext(nullptr);
         }
     }
+
+#if IMGUI_VERSION_NUM >= 19200
     s_textureMap.clear();
+#endif
 }
 
 void Shutdown()
@@ -660,7 +637,10 @@ void Shutdown()
     ImGui::SetCurrentContext(nullptr);
 
     s_windowContexts.clear();
+
+#if IMGUI_VERSION_NUM >= 19200
     s_textureMap.clear();
+#endif
 }
 
 #if IMGUI_VERSION_NUM >= 19200
@@ -1049,8 +1029,6 @@ void RenderDrawLists(ImDrawData* draw_data)
             ImGui::SFML::UpdateFontTexture(tex);
         }
     }
-#else
-    assert(io.Fonts->TexID != (ImTextureID) nullptr); // You forgot to create and set font texture
 #endif
 
     // Avoid rendering when minimized, scale coordinates for retina displays (screen coordinates !=
