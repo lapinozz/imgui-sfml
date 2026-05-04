@@ -698,7 +698,14 @@ void Shutdown(const sf::Window& window)
     }
 
 #if IMGUI_VERSION_NUM >= 19200
-    s_textureMap.clear();
+    for (ImTextureData* tex : ImGui::GetPlatformIO().Textures)
+    {
+        if (tex->RefCount == 1)
+        {
+            tex->SetStatus(ImTextureStatus_WantDestroy);
+            UpdateImguiTexture(tex);
+        }
+    }
 #endif
 }
 
