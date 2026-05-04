@@ -46,13 +46,6 @@ IMGUI_SFML_API void Shutdown(const sf::Window& window);
 // Shuts down all ImGui contexts
 IMGUI_SFML_API void Shutdown();
 
-#if IMGUI_VERSION_NUM >= 19200
-IMGUI_SFML_API void UpdateFontTexture(ImTextureData* tex);
-#else
-[[nodiscard]] IMGUI_SFML_API bool UpdateFontTexture();
-IMGUI_SFML_API std::optional<sf::Texture>& GetFontTexture();
-#endif
-
 // joystick functions
 IMGUI_SFML_API void SetActiveJoystickId(unsigned int joystickId);
 IMGUI_SFML_API void SetJoystickDPadThreshold(float threshold);

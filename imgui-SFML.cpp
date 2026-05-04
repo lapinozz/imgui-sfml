@@ -292,6 +292,77 @@ WindowContext*                              s_currWindowCtx = nullptr;
 
 #if IMGUI_VERSION_NUM >= 19200
 std::map<ImTextureID, sf::Texture> s_textureMap;
+
+void UpdateImguiTexture(ImTextureData* tex)
+{
+    if (tex->Status == ImTextureStatus_WantCreate)
+    {
+        const auto  size = static_cast<sf::Vector2u>(sf::Vector2{tex->Width, tex->Height});
+        sf::Texture texture{size};
+        texture.setRepeated(false);
+        texture.update(static_cast<std::uint8_t*>(tex->GetPixels()));
+        auto id = convertGLTextureHandleToImTextureID(texture.getNativeHandle());
+        tex->SetTexID(id);
+        tex->SetStatus(ImTextureStatus_OK);
+        s_textureMap.emplace(id, std::move(texture));
+    }
+    else if (tex->Status == ImTextureStatus_WantUpdates)
+    {
+        if (auto found = s_textureMap.find(tex->GetTexID()); found != s_textureMap.end())
+        {
+            auto& texture = found->second;
+            int   pitch   = tex->GetPitch();
+            for (ImTextureRect& r : tex->Updates)
+            {
+                std::vector<uint8_t> block;
+                block.resize((size_t)r.w * r.h * tex->BytesPerPixel);
+                const auto* pixels = static_cast<uint8_t*>(tex->GetPixelsAt(r.x, r.y));
+                for (size_t y = 0; y < r.h; ++y)
+                {
+                    memcpy(&block[y * r.w * 4], pixels + (y * pitch), (size_t)r.w * 4);
+                }
+
+                texture.update(block.data(), {r.w, r.h}, {r.x, r.y});
+            }
+            tex->SetStatus(ImTextureStatus_OK);
+        }
+    }
+    else if (tex->Status == ImTextureStatus_WantDestroy)
+    {
+        const auto id = tex->GetTexID();
+        tex->SetTexID(ImTextureID_Invalid);
+        tex->SetStatus(ImTextureStatus_Destroyed);
+        s_textureMap.erase(id);
+    }
+}
+
+#else
+bool UpdateFontTexture()
+{
+    assert(s_currWindowCtx);
+
+    ImGuiIO&       io     = ImGui::GetIO();
+    unsigned char* pixels = nullptr;
+    int            width  = 0;
+    int            height = 0;
+
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+
+    sf::Texture newTexture;
+    if (!newTexture.resize(sf::Vector2u(sf::Vector2(width, height))))
+    {
+        return false;
+    }
+
+    newTexture.update(pixels);
+
+    ImTextureID texID = convertGLTextureHandleToImTextureID(newTexture.getNativeHandle());
+    io.Fonts->SetTexID(texID);
+
+    s_currWindowCtx->fontTexture = std::move(newTexture);
+
+    return true;
+}
 #endif
 
 } // end of anonymous namespace
@@ -559,7 +630,7 @@ void Update(const sf::Vector2i& mousePos, const sf::Vector2f& displaySize, sf::T
 #if IMGUI_VERSION_NUM < 19200
     if (!io.Fonts->TexReady)
     {
-        assert(ImGui::SFML::UpdateFontTexture()); // Failed to create font texture
+        assert(UpdateFontTexture()); // Failed to create font texture
     }
 #endif
 
@@ -642,86 +713,6 @@ void Shutdown()
     s_textureMap.clear();
 #endif
 }
-
-#if IMGUI_VERSION_NUM >= 19200
-void UpdateFontTexture(ImTextureData* tex)
-{
-
-    if (tex->Status == ImTextureStatus_WantCreate)
-    {
-        const auto  size = static_cast<sf::Vector2u>(sf::Vector2{tex->Width, tex->Height});
-        sf::Texture texture{size};
-        texture.setRepeated(false);
-        texture.update(static_cast<std::uint8_t*>(tex->GetPixels()));
-        auto id = convertGLTextureHandleToImTextureID(texture.getNativeHandle());
-        tex->SetTexID(id);
-        tex->SetStatus(ImTextureStatus_OK);
-        s_textureMap.emplace(id, std::move(texture));
-    }
-    else if (tex->Status == ImTextureStatus_WantUpdates)
-    {
-        if (auto found = s_textureMap.find(tex->GetTexID()); found != s_textureMap.end())
-        {
-            auto& texture = found->second;
-            int   pitch   = tex->GetPitch();
-            for (ImTextureRect& r : tex->Updates)
-            {
-                std::vector<uint8_t> block;
-                block.resize((size_t)r.w * r.h * tex->BytesPerPixel);
-                const auto* pixels = static_cast<uint8_t*>(tex->GetPixelsAt(r.x, r.y));
-                for (size_t y = 0; y < r.h; ++y)
-                {
-                    memcpy(&block[y * r.w * 4], pixels + (y * pitch), (size_t)r.w * 4);
-                }
-
-                texture.update(block.data(), {r.w, r.h}, {r.x, r.y});
-            }
-            tex->SetStatus(ImTextureStatus_OK);
-        }
-    }
-    else if (tex->Status == ImTextureStatus_WantDestroy)
-    {
-        const auto id = tex->GetTexID();
-        tex->SetTexID(ImTextureID_Invalid);
-        tex->SetStatus(ImTextureStatus_Destroyed);
-        s_textureMap.erase(id);
-    }
-}
-
-#else
-bool UpdateFontTexture()
-{
-    assert(s_currWindowCtx);
-
-    ImGuiIO&       io     = ImGui::GetIO();
-    unsigned char* pixels = nullptr;
-    int            width  = 0;
-    int            height = 0;
-
-    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
-
-    sf::Texture newTexture;
-    if (!newTexture.resize(sf::Vector2u(sf::Vector2(width, height))))
-    {
-        return false;
-    }
-
-    newTexture.update(pixels);
-
-    ImTextureID texID = convertGLTextureHandleToImTextureID(newTexture.getNativeHandle());
-    io.Fonts->SetTexID(texID);
-
-    s_currWindowCtx->fontTexture = std::move(newTexture);
-
-    return true;
-}
-
-std::optional<sf::Texture>& GetFontTexture()
-{
-    assert(s_currWindowCtx);
-    return s_currWindowCtx->fontTexture;
-}
-#endif
 
 void SetActiveJoystickId(unsigned int joystickId)
 {
@@ -1026,7 +1017,7 @@ void RenderDrawLists(ImDrawData* draw_data)
     {
         if (tex->Status != ImTextureStatus_OK)
         {
-            ImGui::SFML::UpdateFontTexture(tex);
+            UpdateImguiTexture(tex);
         }
     }
 #endif
