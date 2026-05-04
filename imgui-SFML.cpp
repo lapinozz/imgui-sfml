@@ -249,7 +249,7 @@ struct WindowContext
     const sf::Window* window;
     ImGuiContext*     imContext{ImGui::CreateContext()};
 
-    std::optional<sf::Texture> fontTexture; 
+    std::optional<sf::Texture> fontTexture;
 
     bool             windowHasFocus;
     bool             mouseMoved{false};
@@ -677,6 +677,19 @@ void Shutdown(const sf::Window& window)
                               { return ctx->window->getNativeHandle() == window.getNativeHandle(); });
     assert(found != s_windowContexts.end() &&
            "Window wasn't inited properly: forgot to call ImGui::SFML::Init(window)?");
+
+#if IMGUI_VERSION_NUM >= 19200
+    ImGui::SetCurrentContext((*found)->imContext);
+    for (ImTextureData* tex : ImGui::GetPlatformIO().Textures)
+    {
+        if (tex->RefCount == 1)
+        {
+            tex->SetStatus(ImTextureStatus_WantDestroy);
+            UpdateImguiTexture(tex);
+        }
+    }
+#endif
+
     s_windowContexts.erase(found); // s_currWindowCtx can become invalid here!
 
     // set current context to some window for convenience if needed
@@ -696,17 +709,6 @@ void Shutdown(const sf::Window& window)
             ImGui::SetCurrentContext(nullptr);
         }
     }
-
-#if IMGUI_VERSION_NUM >= 19200
-    for (ImTextureData* tex : ImGui::GetPlatformIO().Textures)
-    {
-        if (tex->RefCount == 1)
-        {
-            tex->SetStatus(ImTextureStatus_WantDestroy);
-            UpdateImguiTexture(tex);
-        }
-    }
-#endif
 }
 
 void Shutdown()
