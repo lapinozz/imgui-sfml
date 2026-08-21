@@ -190,6 +190,50 @@ struct WindowContext
 std::vector<std::unique_ptr<WindowContext>> s_windowContexts;
 WindowContext*                              s_currWindowCtx = nullptr;
 
+void UpdateCommon(const sf::Vector2f& displaySize, sf::Time dt)
+{
+    assert(s_currWindowCtx);
+
+    // Update OS/hardware mouse cursor if imgui isn't drawing a software cursor
+    const ImGuiMouseCursor mouse_cursor = ImGui::GetIO().MouseDrawCursor ? ImGuiMouseCursor_None : ImGui::GetMouseCursor();
+    if (s_currWindowCtx->lastCursor != mouse_cursor)
+    {
+        s_currWindowCtx->lastCursor = mouse_cursor;
+        updateMouseCursor(window);
+    }
+
+    ImGuiIO& io  = ImGui::GetIO();
+    io.DeltaTime = dt.asSeconds();
+
+    if (s_currWindowCtx->windowHasFocus && io.WantSetMousePos)
+    {
+        sf::Mouse::setPosition(sf::Vector2i(toSfVector2f(io.MousePos)));
+    }
+
+    if (io.WantTextInput && !s_currWindowCtx->wantTextInput)
+    {
+        sf::Keyboard::setVirtualKeyboardVisible(true);
+        s_currWindowCtx->wantTextInput = true;
+    }
+    else if (!io.WantTextInput && s_currWindowCtx->wantTextInput)
+    {
+        sf::Keyboard::setVirtualKeyboardVisible(false);
+        s_currWindowCtx->wantTextInput = false;
+    }
+
+    assert(io.Fonts->Fonts.Size > 0); // You forgot to create and set up font
+                                      // atlas (see createFontTexture)
+
+    // gamepad navigation
+    if ((io.ConfigFlags & ImGuiConfigFlags_NavEnableGamepad) && s_currWindowCtx->joystickId != NULL_JOYSTICK_ID)
+    {
+        updateJoystickButtonState(io);
+        updateJoystickDPadState(io);
+        updateJoystickAxisState(io);
+    }
+
+    ImGui::NewFrame();
+}
 } // end of anonymous namespace
 
 namespace ImGui
@@ -407,48 +451,20 @@ void Update(sf::RenderWindow& window, sf::Time dt)
 void Update(sf::Window& window, sf::RenderTarget& target, sf::Time dt)
 {
     SetCurrentWindow(window);
-    assert(s_currWindowCtx);
+    UpdateCommon(sf::Vector2f(target.getSize()), dt);
+}
 
-    // Update OS/hardware mouse cursor if imgui isn't drawing a software cursor
-    const ImGuiMouseCursor mouse_cursor = ImGui::GetIO().MouseDrawCursor ? ImGuiMouseCursor_None : ImGui::GetMouseCursor();
-    if (s_currWindowCtx->lastCursor != mouse_cursor)
+IMGUI_SFML_API void Update(const sf::Vector2i& mousePos, const sf::Vector2f& displaySize, sf::Time dt)
+{
+    assert(s_currWindowCtx && "No current window is set - forgot to call ImGui::SFML::Init?");
+
+    ImGuiIO& io = ImGui::GetIO();
+    if (s_currWindowCtx->windowHasFocus && !io.WantSetMousePos)
     {
-        s_currWindowCtx->lastCursor = mouse_cursor;
-        updateMouseCursor(window);
+        io.MousePos = toImVec2(sf::Vector2f(mousePos));
     }
 
-    ImGuiIO& io    = ImGui::GetIO();
-    io.DisplaySize = toImVec2(sf::Vector2f(target.getSize()));
-    io.DeltaTime   = dt.asSeconds();
-
-    if (s_currWindowCtx->windowHasFocus && io.WantSetMousePos)
-    {
-        sf::Mouse::setPosition(sf::Vector2i(toSfVector2f(io.MousePos)));
-    }
-
-    if (io.WantTextInput && !s_currWindowCtx->wantTextInput)
-    {
-        sf::Keyboard::setVirtualKeyboardVisible(true);
-        s_currWindowCtx->wantTextInput = true;
-    }
-    else if (!io.WantTextInput && s_currWindowCtx->wantTextInput)
-    {
-        sf::Keyboard::setVirtualKeyboardVisible(false);
-        s_currWindowCtx->wantTextInput = false;
-    }
-
-    assert(io.Fonts->Fonts.Size > 0); // You forgot to create and set up font
-                                      // atlas (see createFontTexture)
-
-    // gamepad navigation
-    if ((io.ConfigFlags & ImGuiConfigFlags_NavEnableGamepad) && s_currWindowCtx->joystickId != NULL_JOYSTICK_ID)
-    {
-        updateJoystickButtonState(io);
-        updateJoystickDPadState(io);
-        updateJoystickAxisState(io);
-    }
-
-    ImGui::NewFrame();
+    UpdateCommon(displaySize, dt);
 }
 
 void Render(sf::RenderWindow& window)
