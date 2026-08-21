@@ -424,6 +424,8 @@ void Update(sf::Window& window, const sf::Vector2f& displaySize, sf::Time dt)
 
     ImGuiIO& io  = ImGui::GetIO();
     io.DeltaTime = dt.asSeconds();
+    io.DisplaySize = toImVec2(displaySize);
+
 
     if (s_currWindowCtx->windowHasFocus && io.WantSetMousePos)
     {
